@@ -953,6 +953,192 @@ function miniSvg(type) {
   return map[type] || map.spectrum;
 }
 
+function conceptDemoMarkup(item) {
+  const controls = {
+    frequency: `
+      <div class="demo-controls">
+        <label>頻率 <output class="demo-out">300 Hz</output></label>
+        <input type="range" class="demo-freq" min="80" max="1200" step="10" value="300" aria-label="頻率" />
+        <button type="button" class="demo-play">▶ 試聽</button>
+      </div>`,
+    amplitude: `
+      <div class="demo-controls">
+        <label>振幅 <output class="demo-out">50%</output></label>
+        <input type="range" class="demo-amp" min="0" max="1" step="0.02" value="0.5" aria-label="振幅" />
+        <button type="button" class="demo-play">▶ 試聽</button>
+      </div>`,
+    spectrum: `
+      <div class="demo-controls">
+        <div class="demo-presets">
+          <button type="button" data-fp="bass" class="active">低音鼓</button>
+          <button type="button" data-fp="voice">人聲</button>
+          <button type="button" data-fp="bird">鳥鳴</button>
+          <button type="button" data-fp="noise">白噪音</button>
+        </div>
+      </div>`
+  };
+  const extra = controls[item.visual] || "";
+  return `<article class="concept-card demo-card" data-demo="${item.visual}">
+    <div class="demo-stage"><canvas class="demo-canvas" width="660" height="240"></canvas></div>
+    ${extra}
+    <h3>${item.title}</h3>
+    <p>${item.text}</p>
+  </article>`;
+}
+
+function playDemoTone(frequency, amplitude = 0.5, seconds = 0.7) {
+  ensureAudio().then((context) => {
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    const volume = Math.min(0.55, 0.05 + amplitude * 0.5);
+    osc.type = "sine";
+    osc.frequency.value = Math.max(1, frequency);
+    compressor.threshold.value = -16;
+    compressor.knee.value = 18;
+    compressor.ratio.value = 7;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), context.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + seconds);
+    osc.connect(gain).connect(compressor).connect(context.destination);
+    osc.start();
+    osc.stop(context.currentTime + seconds + 0.05);
+  });
+}
+
+const conceptDemos = [];
+const SPECTRUM_BARS = 28;
+
+function spectrumTarget(profile, i, n) {
+  const x = i / (n - 1);
+  switch (profile) {
+    case "bass": return Math.exp(-i / 3.2) * 0.95 + 0.05;
+    case "voice": {
+      const g = (c, w) => Math.exp(-((x - c) ** 2) / (2 * w * w));
+      return Math.min(1, g(0.12, 0.06) * 0.95 + g(0.34, 0.09) * 0.7 + g(0.6, 0.12) * 0.35 + 0.04);
+    }
+    case "bird": return Math.exp(-(n - 1 - i) / 3.4) * 0.95 + 0.05;
+    case "noise": return 0.5 + 0.12 * Math.sin(i * 1.7);
+    default: return 0.4;
+  }
+}
+
+function initInteractiveConcepts() {
+  conceptDemos.length = 0;
+  document.querySelectorAll("#conceptGrid .demo-card").forEach((card) => {
+    const canvas = card.querySelector(".demo-canvas");
+    const state = { type: card.dataset.demo, card, canvas, ctx: canvas.getContext("2d"), phase: 0 };
+    if (state.type === "frequency") {
+      const range = card.querySelector(".demo-freq");
+      const out = card.querySelector(".demo-out");
+      state.freq = Number(range.value);
+      range.addEventListener("input", () => {
+        state.freq = Number(range.value);
+        out.textContent = `${state.freq} Hz`;
+      });
+      card.querySelector(".demo-play").addEventListener("click", () => playDemoTone(state.freq, 0.5, 0.8));
+    } else if (state.type === "amplitude") {
+      const range = card.querySelector(".demo-amp");
+      const out = card.querySelector(".demo-out");
+      state.amp = Number(range.value);
+      range.addEventListener("input", () => {
+        state.amp = Number(range.value);
+        out.textContent = `${Math.round(state.amp * 100)}%`;
+      });
+      card.querySelector(".demo-play").addEventListener("click", () => playDemoTone(440, state.amp, 0.7));
+    } else if (state.type === "spectrum") {
+      state.profile = "bass";
+      state.bars = new Array(SPECTRUM_BARS).fill(0.1);
+      state.seeds = Array.from({ length: SPECTRUM_BARS }, () => Math.random() * Math.PI * 2);
+      card.querySelectorAll(".demo-presets button").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.profile = button.dataset.fp;
+          card.querySelectorAll(".demo-presets button").forEach((b) => b.classList.toggle("active", b === button));
+        });
+      });
+    }
+    conceptDemos.push(state);
+  });
+  if (conceptDemos.length && !conceptDemos.running) {
+    conceptDemos.running = true;
+    requestAnimationFrame(animateConcepts);
+  }
+}
+
+function animateConcepts() {
+  conceptDemos.forEach(drawConceptDemo);
+  requestAnimationFrame(animateConcepts);
+}
+
+function drawConceptDemo(state) {
+  const { ctx, canvas } = state;
+  if (canvas.offsetParent === null) return; // skip when the page is hidden
+  const w = canvas.width;
+  const h = canvas.height;
+  drawGrid(ctx, w, h);
+  if (state.type === "frequency") {
+    state.phase += 0.05;
+    const cycles = Math.max(0.6, Math.min(26, state.freq / 60));
+    const hue = state.freq > 700 ? 45 : state.freq > 320 ? 200 : 168;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = `hsl(${hue}, 82%, 62%)`;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 2) {
+      const y = h / 2 + Math.sin((x / w) * cycles * Math.PI * 2 - state.phase) * 72;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "#e9f2ff";
+    ctx.font = "22px Microsoft JhengHei, sans-serif";
+    ctx.fillText(`${state.freq} Hz`, 24, 38);
+    ctx.fillStyle = "#a8b8cc";
+    ctx.font = "18px Microsoft JhengHei, sans-serif";
+    ctx.fillText(state.freq < 320 ? "低沉" : state.freq < 700 ? "適中" : "尖亮", w - 92, 38);
+  } else if (state.type === "amplitude") {
+    state.phase += 0.05;
+    const amp = state.amp * (h * 0.42);
+    ctx.setLineDash([6, 8]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(168, 184, 204, 0.5)";
+    [h / 2 - h * 0.42, h / 2 + h * 0.42].forEach((y) => {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = state.amp > 0.66 ? "#ff5d93" : state.amp > 0.33 ? "#ffbf3f" : "#18b6a2";
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 2) {
+      const y = h / 2 + Math.sin((x / w) * 4 * Math.PI * 2 - state.phase) * amp;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "#e9f2ff";
+    ctx.font = "22px Microsoft JhengHei, sans-serif";
+    ctx.fillText(`振幅 ${Math.round(state.amp * 100)}%`, 24, 38);
+    ctx.fillStyle = "#a8b8cc";
+    ctx.font = "18px Microsoft JhengHei, sans-serif";
+    ctx.fillText(state.amp > 0.66 ? "大聲" : state.amp > 0.33 ? "適中" : "小聲", w - 70, 38);
+  } else if (state.type === "spectrum") {
+    state.phase += 0.06;
+    const n = state.bars.length;
+    const barWidth = w / n;
+    for (let i = 0; i < n; i += 1) {
+      const base = spectrumTarget(state.profile, i, n);
+      const wobble = 0.78 + 0.22 * Math.sin(state.phase * 2 + state.seeds[i]);
+      const target = Math.max(0.04, Math.min(1, base * wobble));
+      state.bars[i] += (target - state.bars[i]) * 0.18;
+      const barHeight = state.bars[i] * h * 0.82;
+      const hue = 170 - (i / n) * 120;
+      ctx.fillStyle = `hsl(${hue}, 84%, ${46 + state.bars[i] * 20}%)`;
+      ctx.fillRect(i * barWidth + 1, h - barHeight, Math.max(1, barWidth - 3), barHeight);
+    }
+    ctx.fillStyle = "#e9f2ff";
+    ctx.font = "20px Microsoft JhengHei, sans-serif";
+    const label = { bass: "低音鼓：低頻強", voice: "人聲：中低頻聚集", bird: "鳥鳴：高頻強", noise: "白噪音：各頻均勻" }[state.profile] || "";
+    ctx.fillText(label, 24, 32);
+  }
+}
+
 async function loadContent() {
   try {
     const loadJson = async (path) => {
@@ -965,9 +1151,10 @@ async function loadContent() {
       loadJson("./data/quiz.json"),
       loadJson("./data/resources.json")
     ]);
-    document.querySelector("#conceptGrid").innerHTML = content.concepts.map((item) => `
-      <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
-    `).join("");
+    document.querySelector("#conceptGrid").innerHTML = content.concepts.map((item) =>
+      conceptDemoMarkup(item)
+    ).join("");
+    initInteractiveConcepts();
     document.querySelector("#applicationGrid").innerHTML = content.applications.map((item) => `
       <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
     `).join("");

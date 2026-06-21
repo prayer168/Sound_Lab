@@ -425,6 +425,77 @@ canvas {
   margin-bottom: 0.35rem;
 }
 
+.demo-card .demo-canvas {
+  width: 100%;
+  aspect-ratio: 11 / 4;
+  display: block;
+  border-radius: 8px;
+  background: #0b1421;
+  border: 1px solid var(--line);
+}
+
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  margin: 0.7rem 0 0.9rem;
+}
+
+.demo-controls label {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.demo-out {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.demo-controls input[type="range"] {
+  flex: 1 1 130px;
+  min-width: 120px;
+  accent-color: var(--teal);
+}
+
+.demo-play {
+  background: linear-gradient(120deg, var(--teal), var(--blue));
+  color: #04121b;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.demo-play:hover {
+  filter: brightness(1.08);
+}
+
+.demo-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.demo-presets button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.demo-presets button.active {
+  background: linear-gradient(120deg, var(--teal), var(--blue));
+  color: #04121b;
+  border-color: transparent;
+  font-weight: 700;
+}
+
 .section-title {
   margin: 1.6rem 0 0.8rem;
 }
