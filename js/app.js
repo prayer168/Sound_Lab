@@ -641,26 +641,39 @@ function miniSvg(type) {
 }
 
 async function loadContent() {
-  const [content, quiz, resources] = await Promise.all([
-    fetch("./data/content.json").then((response) => response.json()),
-    fetch("./data/quiz.json").then((response) => response.json()),
-    fetch("./data/resources.json").then((response) => response.json())
-  ]);
-  document.querySelector("#conceptGrid").innerHTML = content.concepts.map((item) => `
-    <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
-  `).join("");
-  document.querySelector("#applicationGrid").innerHTML = content.applications.map((item) => `
-    <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
-  `).join("");
-  document.querySelector("#resourceGrid").innerHTML = resources.map((item) => `
-    <article class="resource-card">
-      ${miniSvg("spectrum")}
-      <h3><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></h3>
-      <p>${item.description}</p>
-      <p class="resource-meta">${item.type}｜${item.grade}｜檢查日期 ${item.checkedAt}</p>
-    </article>
-  `).join("");
-  renderQuiz(quiz);
+  try {
+    const loadJson = async (path) => {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`${path} ${response.status}`);
+      return response.json();
+    };
+    const [content, quiz, resources] = await Promise.all([
+      loadJson("./data/content.json"),
+      loadJson("./data/quiz.json"),
+      loadJson("./data/resources.json")
+    ]);
+    document.querySelector("#conceptGrid").innerHTML = content.concepts.map((item) => `
+      <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
+    `).join("");
+    document.querySelector("#applicationGrid").innerHTML = content.applications.map((item) => `
+      <article class="concept-card">${miniSvg(item.visual)}<h3>${item.title}</h3><p>${item.text}</p></article>
+    `).join("");
+    document.querySelector("#resourceGrid").innerHTML = resources.map((item) => `
+      <article class="resource-card">
+        ${miniSvg("spectrum")}
+        <h3><a href="${item.url}" target="_blank" rel="noreferrer">${item.title}</a></h3>
+        <p>${item.description}</p>
+        <p class="resource-meta">${item.type}｜${item.grade}｜檢查日期 ${item.checkedAt}</p>
+      </article>
+    `).join("");
+    renderQuiz(quiz);
+  } catch (error) {
+    const message = `<article class="concept-card"><h3>資料載入失敗</h3><p>請重新整理頁面，或確認 data 資料檔已部署。錯誤：${error.message}</p></article>`;
+    document.querySelector("#conceptGrid").innerHTML = message;
+    document.querySelector("#applicationGrid").innerHTML = "";
+    document.querySelector("#resourceGrid").innerHTML = message;
+    document.querySelector("#quizBox").innerHTML = message;
+  }
 }
 
 function renderQuiz(quiz) {
