@@ -492,6 +492,50 @@ canvas {
   text-align: center;
 }
 
+.audio-credits {
+  max-width: 1100px;
+  margin: 1.5rem auto 5rem;
+  padding: 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.audio-credits details {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 1.1rem;
+}
+
+.audio-credits summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.audio-credits ul {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1.5rem;
+}
+
+.audio-credits li strong {
+  color: var(--text);
+}
+
+.audio-credits a {
+  color: var(--teal);
+  word-break: break-word;
+}
+
+@media (max-width: 920px) {
+  .audio-credits ul {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 920px) {
   .app-header,
   .panel-grid,

@@ -819,6 +819,31 @@ async function loadBioManifest() {
   } catch {
     bioManifest = {};
   }
+  renderAudioCredits();
+}
+
+function renderAudioCredits() {
+  const section = document.querySelector("#audioCredits");
+  const list = document.querySelector("#audioCreditsList");
+  if (!section || !list) return;
+  const nameById = Object.fromEntries(biologicalSounds.map((item) => [item.id, item.name]));
+  const entries = biologicalSounds
+    .map((item) => ({ id: item.id, name: nameById[item.id], ...bioManifest[item.id] }))
+    .filter((entry) => entry.file);
+  if (!entries.length) {
+    section.hidden = true;
+    return;
+  }
+  list.innerHTML = entries.map((entry) => {
+    const title = (entry.src || entry.file).replace(/^File:/, "");
+    const source = entry.url
+      ? `<a href="${entry.url}" target="_blank" rel="noreferrer">${title}</a>`
+      : title;
+    const license = entry.license ? `（${entry.license}）` : "";
+    const author = entry.artist ? `，作者：${entry.artist}` : "";
+    return `<li><strong>${entry.name}</strong>：${source}${author}${license}</li>`;
+  }).join("");
+  section.hidden = false;
 }
 
 function bioVolume() {
