@@ -27,12 +27,12 @@ const canvases = {
 
 const ctxs = Object.fromEntries(Object.entries(canvases).map(([key, canvas]) => [key, canvas.getContext("2d")]));
 
-function ensureAudio() {
+async function ensureAudio() {
   if (!audioContext) {
     audioContext = new AudioContext();
   }
   if (audioContext.state === "suspended") {
-    audioContext.resume();
+    await audioContext.resume();
   }
   return audioContext;
 }
@@ -151,14 +151,15 @@ function stopTone() {
 
 document.querySelector("#playTone").addEventListener("click", () => {
   stopTone();
-  const context = ensureAudio();
-  oscillator = context.createOscillator();
-  toneGain = context.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = Math.max(1, Number(document.querySelector("#frequencyInput").value));
-  toneGain.gain.value = Number(document.querySelector("#volumeRange").value);
-  oscillator.connect(toneGain).connect(context.destination);
-  oscillator.start();
+  ensureAudio().then((context) => {
+    oscillator = context.createOscillator();
+    toneGain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = Math.max(1, Number(document.querySelector("#frequencyInput").value));
+    toneGain.gain.value = Number(document.querySelector("#volumeRange").value);
+    oscillator.connect(toneGain).connect(context.destination);
+    oscillator.start();
+  });
 });
 document.querySelector("#stopTone").addEventListener("click", stopTone);
 document.querySelector("#sweepTone").addEventListener("click", () => {
@@ -203,19 +204,19 @@ function drawSpectrum(canvas, ctx, analyser, mode = "bars") {
     }
     if (index < data.length * 0.16) lowEnergy += value;
     if (index > data.length * 0.55) highEnergy += value;
-    const height = (value / 255) * canvas.height * 0.82;
+    const height = Math.max(mode === "mic" && value > 0 ? 3 : 0, (value / 255) * canvas.height * 0.82);
     const hue = mode === "media" ? 170 + (index / data.length) * 120 : 170 - (index / data.length) * 80;
     ctx.fillStyle = `hsl(${hue}, 86%, ${42 + value / 8}%)`;
     ctx.fillRect(index * barWidth, canvas.height - height, Math.max(1, barWidth - 1), height);
   });
-  if (mode === "media") {
+  if (mode === "media" || mode === "mic") {
     ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = "rgba(255, 191, 63, 0.75)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = mode === "mic" ? "rgba(255, 191, 63, 0.86)" : "rgba(255, 191, 63, 0.75)";
+    ctx.lineWidth = mode === "mic" ? 4 : 3;
     ctx.beginPath();
     for (let i = 0; i < timeData.length; i += 4) {
       const x = (i / timeData.length) * canvas.width;
-      const y = canvas.height * 0.46 + ((timeData[i] - 128) / 128) * 90;
+      const y = canvas.height * 0.46 + ((timeData[i] - 128) / 128) * (mode === "mic" ? 130 : 90);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
@@ -228,13 +229,23 @@ function drawSpectrum(canvas, ctx, analyser, mode = "bars") {
 }
 
 async function startMic() {
-  const context = ensureAudio();
-  micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const context = await ensureAudio();
+  if (micStream) stopMic();
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    }
+  });
   micSource = context.createMediaStreamSource(micStream);
   micAnalyser = context.createAnalyser();
   micAnalyser.fftSize = 2048;
+  micAnalyser.minDecibels = -100;
+  micAnalyser.maxDecibels = -12;
+  micAnalyser.smoothingTimeConstant = 0.72;
   micSource.connect(micAnalyser);
-  document.querySelector("#micStatus").textContent = "麥克風已啟用，請試著拍手、說話或播放一段音樂。";
+  document.querySelector("#micStatus").textContent = `麥克風已啟用，AudioContext：${context.state}。請試著拍手、說話或播放一段音樂。`;
 }
 
 function stopMic() {
@@ -258,11 +269,11 @@ document.querySelector("#stopMic").addEventListener("click", stopMic);
 
 function animateMic() {
   if (micAnalyser && !document.querySelector("#freezeMic").checked) {
-    const result = drawSpectrum(canvases.mic, ctxs.mic, micAnalyser);
+    const result = drawSpectrum(canvases.mic, ctxs.mic, micAnalyser, "mic");
     document.querySelector("#dbValue").textContent = `${result.db.toFixed(1)} dB`;
-    document.querySelector("#peakFrequency").textContent = `${result.peakFrequency} Hz`;
+    document.querySelector("#peakFrequency").textContent = result.max > 2 ? `${result.peakFrequency} Hz` : "-- Hz";
     document.querySelector("#dbFill").style.height = `${result.db}%`;
-    document.querySelector("#soundState").textContent = result.db < 35 ? "安靜" : result.db < 68 ? "一般聲音" : "偏大聲";
+    document.querySelector("#soundState").textContent = result.max <= 2 ? "等待聲音" : result.db < 35 ? "安靜" : result.db < 68 ? "一般聲音" : "偏大聲";
     updateQuietGame(result.db);
   } else if (!micAnalyser) {
     drawIdle(canvases.mic, ctxs.mic, "等待麥克風");
@@ -280,7 +291,7 @@ document.querySelector("#loadUrl").addEventListener("click", () => {
   if (url) mediaPlayer.src = url;
 });
 document.querySelector("#playMedia").addEventListener("click", async () => {
-  const context = ensureAudio();
+  const context = await ensureAudio();
   if (!mediaConnected) {
     mediaSource = context.createMediaElementSource(mediaPlayer);
     mediaAnalyser = context.createAnalyser();
@@ -311,17 +322,18 @@ function drawIdle(canvas, ctx, label) {
 }
 
 function playChallengeTone(frequency) {
-  const context = ensureAudio();
-  const osc = context.createOscillator();
-  const gain = context.createGain();
-  osc.frequency.value = frequency;
-  osc.type = "triangle";
-  gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.04);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 1.2);
-  osc.connect(gain).connect(context.destination);
-  osc.start();
-  osc.stop(context.currentTime + 1.25);
+  ensureAudio().then((context) => {
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    osc.frequency.value = frequency;
+    osc.type = "triangle";
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 1.2);
+    osc.connect(gain).connect(context.destination);
+    osc.start();
+    osc.stop(context.currentTime + 1.25);
+  });
 }
 
 document.querySelector("#newChallenge").addEventListener("click", () => {
