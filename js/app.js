@@ -727,7 +727,7 @@ const biologicalSounds = [
   { id: "frog", name: "青蛙", group: "兩棲類" },
   { id: "cricket", name: "蟋蟀", group: "昆蟲" },
   { id: "bee", name: "蜜蜂", group: "昆蟲" },
-  { id: "mosquito", name: "蚊子", group: "昆蟲" },
+  { id: "mosquito", name: "蒼蠅", group: "昆蟲" },
   { id: "owl", name: "貓頭鷹", group: "鳥類" },
   { id: "dolphin", name: "海豚", group: "海洋哺乳類" },
   { id: "whale", name: "鯨魚", group: "海洋哺乳類" },
@@ -771,47 +771,6 @@ const bioVoiceHints = {
   goat: "咩 欸"
 };
 
-function createNoiseBuffer(context, seconds = 1) {
-  const buffer = context.createBuffer(1, context.sampleRate * seconds, context.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < data.length; i += 1) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  return buffer;
-}
-
-function playToneEvent(context, output, { frequency, start, duration, type = "sine", volume = 0.12, endFrequency = null }) {
-  const osc = context.createOscillator();
-  const gain = context.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(frequency, start);
-  if (endFrequency) {
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, endFrequency), start + duration);
-  }
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.025);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain).connect(output);
-  osc.start(start);
-  osc.stop(start + duration + 0.04);
-}
-
-function playNoiseEvent(context, output, { start, duration, frequency = 1200, type = "bandpass", volume = 0.08 }) {
-  const source = context.createBufferSource();
-  const filter = context.createBiquadFilter();
-  const gain = context.createGain();
-  source.buffer = createNoiseBuffer(context, Math.max(0.4, duration + 0.1));
-  filter.type = type;
-  filter.frequency.setValueAtTime(frequency, start);
-  filter.Q.value = 8;
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  source.connect(filter).connect(gain).connect(output);
-  source.start(start);
-  source.stop(start + duration + 0.04);
-}
-
 function speakBioHint(id) {
   if (!document.querySelector("#bioVoiceHint")?.checked || !("speechSynthesis" in window)) return;
   const text = bioVoiceHints[id];
@@ -822,97 +781,7 @@ function speakBioHint(id) {
   utterance.rate = 0.86;
   utterance.pitch = id === "elephant" || id === "cow" || id === "whale" ? 0.55 : id === "mosquito" || id === "cricket" || id === "cicada" ? 1.55 : 1.08;
   utterance.volume = Math.min(1, Math.max(0.35, Number(document.querySelector("#bioVolume")?.value || 1.7) / 2.4));
-  setTimeout(() => window.speechSynthesis.speak(utterance), 130);
-}
-
-async function synthBiologicalSound(id) {
-  const context = await ensureAudio();
-  const now = context.currentTime + 0.04;
-  const master = context.createGain();
-  const compressor = context.createDynamicsCompressor();
-  master.gain.value = Number(document.querySelector("#bioVolume")?.value || 1.7);
-  compressor.threshold.value = -18;
-  compressor.knee.value = 20;
-  compressor.ratio.value = 8;
-  compressor.attack.value = 0.004;
-  compressor.release.value = 0.18;
-  master.connect(compressor).connect(context.destination);
-  const tone = (frequency, start, duration, type, volume, endFrequency = null) =>
-    playToneEvent(context, master, { frequency, start: now + start, duration, type, volume, endFrequency });
-  const noise = (start, duration, frequency, type, volume) =>
-    playNoiseEvent(context, master, { start: now + start, duration, frequency, type, volume });
-
-  switch (id) {
-    case "dog":
-      [0, 0.22, 0.62].forEach((t) => { tone(150, t, 0.16, "square", 0.12, 95); noise(t, 0.12, 700, "bandpass", 0.09); });
-      break;
-    case "cat":
-      tone(540, 0, 0.72, "sine", 0.12, 880); tone(920, 0.08, 0.42, "triangle", 0.05, 620);
-      break;
-    case "frog":
-      [0, 0.38, 0.76].forEach((t) => tone(120, t, 0.24, "sawtooth", 0.14, 92));
-      break;
-    case "cricket":
-      [0, 0.08, 0.16, 0.42, 0.5, 0.58].forEach((t) => tone(5200, t, 0.045, "square", 0.055));
-      break;
-    case "bee":
-      [0, 0.18, 0.36, 0.54, 0.72].forEach((t, i) => tone(i % 2 ? 245 : 210, t, 0.18, "sawtooth", 0.06));
-      break;
-    case "mosquito":
-      tone(760, 0, 1.05, "sawtooth", 0.045, 980); tone(1540, 0, 1.05, "sine", 0.025, 1780);
-      break;
-    case "owl":
-      [0, 0.58].forEach((t) => tone(420, t, 0.42, "sine", 0.1, 260));
-      break;
-    case "dolphin":
-      [0, 0.12, 0.24, 0.46, 0.58].forEach((t) => tone(3600, t, 0.08, "sine", 0.08, 7200));
-      break;
-    case "whale":
-      tone(110, 0, 1.2, "sine", 0.16, 54); tone(180, 0.22, 0.95, "triangle", 0.08, 90);
-      break;
-    case "rooster":
-      tone(520, 0, 0.28, "sawtooth", 0.11, 900); tone(780, 0.24, 0.32, "sawtooth", 0.1, 520); tone(1080, 0.55, 0.36, "sawtooth", 0.12, 720);
-      break;
-    case "cow":
-      tone(135, 0, 0.9, "sawtooth", 0.14, 100); tone(220, 0.08, 0.75, "sine", 0.05, 160);
-      break;
-    case "sheep":
-      [0, 0.34].forEach((t) => { tone(300, t, 0.28, "triangle", 0.12, 430); tone(520, t + 0.05, 0.18, "sine", 0.045); });
-      break;
-    case "horse":
-      [0, 0.16, 0.32].forEach((t) => tone(460, t, 0.13, "sawtooth", 0.1, 260)); noise(0.52, 0.24, 1400, "highpass", 0.05);
-      break;
-    case "elephant":
-      tone(62, 0, 0.72, "sawtooth", 0.18, 140); tone(220, 0.08, 0.44, "triangle", 0.08, 360);
-      break;
-    case "wolf":
-      tone(260, 0, 1.1, "sine", 0.12, 690); tone(520, 0.16, 0.84, "triangle", 0.05, 780);
-      break;
-    case "crow":
-      [0, 0.34, 0.7].forEach((t) => { tone(760, t, 0.14, "square", 0.08, 520); noise(t, 0.12, 1600, "bandpass", 0.07); });
-      break;
-    case "duck":
-      [0, 0.22, 0.44].forEach((t) => tone(360, t, 0.18, "sawtooth", 0.11, 250));
-      break;
-    case "cicada":
-      [0, 0.12, 0.24, 0.36, 0.48, 0.6, 0.72].forEach((t) => tone(3900, t, 0.1, "sawtooth", 0.05, 4200));
-      break;
-    case "monkey":
-      [0, 0.18, 0.36, 0.72].forEach((t, i) => tone(i % 2 ? 900 : 620, t, 0.16, "triangle", 0.1, i % 2 ? 520 : 980));
-      break;
-    case "pig":
-      [0, 0.28, 0.56].forEach((t) => { tone(180, t, 0.18, "sawtooth", 0.1, 130); noise(t, 0.16, 500, "lowpass", 0.07); });
-      break;
-    case "snake":
-      noise(0, 0.85, 5200, "highpass", 0.06); noise(0.28, 0.45, 6800, "highpass", 0.04);
-      break;
-    case "goat":
-      [0, 0.38].forEach((t) => tone(420, t, 0.34, "sawtooth", 0.11, 580));
-      break;
-    default:
-      tone(440, 0, 0.45, "sine", 0.08);
-  }
-  speakBioHint(id);
+  bioHintTimer = setTimeout(() => window.speechSynthesis.speak(utterance), 130);
 }
 
 let bioManifest = {};
@@ -920,16 +789,37 @@ let bioAudioEl;
 let bioMediaSource;
 let bioGainNode;
 let bioStopTimer;
+let bioHintTimer;
+let bioPlaybackRequest = 0;
+let bioReady = false;
+let bioDeck = [];
 const BIO_MAX_SECONDS = 5;
 
 async function loadBioManifest() {
+  const button = document.querySelector('#newBioChallenge');
+  button.disabled = true;
   try {
     const response = await fetch("./audio/bio/manifest.json");
     if (!response.ok) throw new Error(String(response.status));
     bioManifest = await response.json();
+    const known = new Set(biologicalSounds.map(item => item.id));
+    for (const [id, entry] of Object.entries(bioManifest)) {
+      if (!known.has(id) && entry.name && entry.group && entry.file) {
+        biologicalSounds.push({ id, name: entry.name, group: entry.group });
+        known.add(id);
+      }
+    }
+    if (biologicalSounds.some(item => !bioManifest[item.id]?.file)) throw new Error('題庫缺少錄音');
+    bioReady = true;
+    button.textContent = '隨機出題';
+    document.querySelector('#bioBankStatus').textContent = `題庫共 ${biologicalSounds.length} 種・新增 ${Object.values(bioManifest).filter(entry => entry.addedOn).length} 種・同一輪不重複出題`;
   } catch {
     bioManifest = {};
+    bioReady = false;
+    button.textContent = '重新載入題庫';
+    document.querySelector('#bioBankStatus').textContent = '題庫載入失敗，請按「重新載入題庫」再試一次。';
   }
+  button.disabled = false;
   renderAudioCredits();
 }
 
@@ -947,12 +837,13 @@ function renderAudioCredits() {
   }
   list.innerHTML = entries.map((entry) => {
     const title = (entry.src || entry.file).replace(/^File:/, "");
-    const source = entry.url
-      ? `<a href="${entry.url}" target="_blank" rel="noreferrer">${title}</a>`
+    const source = entry.sourcePage || entry.url
+      ? `<a href="${escapeHtml(entry.sourcePage || entry.url)}" target="_blank" rel="noreferrer">${escapeHtml(title)}</a>`
       : title;
-    const license = entry.license ? `（${entry.license}）` : "";
-    const author = entry.artist ? `，作者：${entry.artist}` : "";
-    return `<li><strong>${entry.name}</strong>：${source}${author}${license}</li>`;
+    const license = entry.licenseUrl ? `（<a href="${escapeHtml(entry.licenseUrl)}" target="_blank" rel="noreferrer">${escapeHtml(entry.license)}</a>）` : entry.license ? `（${escapeHtml(entry.license)}）` : '';
+    const author = entry.artist ? `，作者：${escapeHtml(entry.artist)}` : "";
+    const edits = entry.modifications ? `<br><small>${escapeHtml(entry.modifications)}</small>` : '';
+    return `<li><strong>${escapeHtml(entry.name)}</strong>：${source}${author}${license}${edits}</li>`;
   }).join("");
   section.hidden = false;
 }
@@ -961,8 +852,13 @@ function bioVolume() {
   return Number(document.querySelector("#bioVolume")?.value || 1.7);
 }
 
-async function playRealBioSound(entry) {
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[char]));
+}
+
+async function playRealBioSound(entry, request) {
   const context = await ensureAudio();
+  if (request !== bioPlaybackRequest) return false;
   if (!bioAudioEl) {
     bioAudioEl = new Audio();
     bioAudioEl.preload = "auto";
@@ -982,32 +878,61 @@ async function playRealBioSound(entry) {
   bioAudioEl.src = `./audio/bio/${entry.file}`;
   bioAudioEl.currentTime = 0;
   await bioAudioEl.play();
-  bioStopTimer = setTimeout(() => bioAudioEl.pause(), BIO_MAX_SECONDS * 1000);
+  if (request !== bioPlaybackRequest) return false;
+  bioStopTimer = setTimeout(() => {
+    if (request === bioPlaybackRequest) bioAudioEl.pause();
+  }, BIO_MAX_SECONDS * 1000);
+  return true;
 }
 
 async function playBiologicalSound(id) {
+  const request = ++bioPlaybackRequest;
+  clearTimeout(bioStopTimer);
+  clearTimeout(bioHintTimer);
+  bioAudioEl?.pause();
+  window.speechSynthesis?.cancel();
   const entry = bioManifest[id];
-  if (entry?.file) {
-    try {
-      await playRealBioSound(entry);
+  try {
+    if (!entry?.file) throw new Error('缺少真實錄音');
+    if (await playRealBioSound(entry, request)) {
+      if (document.querySelector('#bioFeedback').textContent.includes('暫時無法播放')) {
+        document.querySelector('#bioFeedback').textContent = `第 ${bioRound} 題：仔細聽，猜猜是哪一種生物。`;
+      }
       speakBioHint(id);
-      return;
-    } catch {
-      // Fall back to synthesis if the recording cannot load or play.
     }
+  } catch {
+    if (request !== bioPlaybackRequest) return;
+    document.querySelector('#bioFeedback').textContent = '這段真實錄音暫時無法播放，請按「重播聲音」或重新出題。';
   }
-  await synthBiologicalSound(id);
+}
+
+function shuffled(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
 }
 
 function pickOptions(answer) {
   const options = [answer];
-  const pool = biologicalSounds.filter((item) => item.id !== answer.id).sort(() => Math.random() - 0.5);
+  const pool = shuffled(biologicalSounds.filter((item) => item.id !== answer.id));
   options.push(...pool.slice(0, 3));
-  return options.sort(() => Math.random() - 0.5);
+  return shuffled(options);
 }
 
-function startBioChallenge() {
-  bioAnswer = biologicalSounds[Math.floor(Math.random() * biologicalSounds.length)];
+async function startBioChallenge() {
+  if (!bioReady) {
+    await loadBioManifest();
+    if (!bioReady) return;
+  }
+  if (!bioDeck.length) {
+    bioDeck = shuffled(biologicalSounds);
+    if (bioDeck.at(-1)?.id === bioAnswer?.id) [bioDeck[0], bioDeck[bioDeck.length - 1]] = [bioDeck.at(-1), bioDeck[0]];
+  }
+  bioAnswer = bioDeck.pop();
+  document.querySelector('#replayBioSound').disabled = false;
   bioRound += 1;
   document.querySelector("#bioRound").textContent = String(bioRound);
   document.querySelector("#bioGroup").textContent = bioAnswer.group;

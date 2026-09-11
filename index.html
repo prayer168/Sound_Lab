@@ -199,15 +199,16 @@
             <p id="gameFeedback" class="feedback">準備好了就開始。</p>
           </article>
           <article class="control-panel">
-            <h2>生物聲音猜猜看</h2>
+            <h2>猜猜我是誰</h2>
             <p>系統會隨機播放一段真實錄音的生物聲音。聽完後，從選項中猜出是哪一種生物。</p>
             <div class="button-row">
-              <button id="newBioChallenge" class="primary-action">隨機出題</button>
-              <button id="replayBioSound">重播聲音</button>
+              <button id="newBioChallenge" class="primary-action" disabled>載入題庫中…</button>
+              <button id="replayBioSound" disabled>重播聲音</button>
             </div>
+            <p id="bioBankStatus" class="hint">正在準備真實動物錄音…</p>
             <label for="bioVolume">生物音量</label>
             <input id="bioVolume" type="range" min="0.6" max="2.4" value="1.7" step="0.1" />
-            <label class="toggle-line"><input id="bioVoiceHint" type="checkbox" /> 加入文字擬聲提示（選用）</label>
+            <label class="toggle-line"><input id="bioVoiceHint" type="checkbox" /> 加入文字擬聲提示（部分動物，選用）</label>
             <div class="choice-grid" id="bioChoices"></div>
             <div class="metric-grid">
               <div><span>題數</span><strong id="bioRound">0</strong></div>
@@ -252,7 +253,7 @@
 
     <section class="audio-credits" id="audioCredits" hidden>
       <details>
-        <summary>生物聲音猜猜看 — 音訊來源與授權</summary>
+        <summary>猜猜我是誰 — 音訊來源與授權</summary>
         <p class="hint">以下真實生物錄音採用公有領域或創用 CC 授權，少數採 Google Sound Library（可免費使用）。再散布時請保留出處與授權。</p>
         <ul id="audioCreditsList"></ul>
       </details>
