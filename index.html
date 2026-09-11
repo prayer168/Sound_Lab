@@ -182,10 +182,14 @@
         <div class="game-layout">
           <article class="control-panel">
             <h2>頻率偵探</h2>
-            <p>按下出題後，聽一小段聲音，再猜它屬於哪個頻率範圍。</p>
+            <p>按下出題後，聲音會持續 6 秒，再猜它屬於哪個頻率範圍。也可以隨時按「停止」結束播放。</p>
             <label for="challengeVolume">偵探音量</label>
             <input id="challengeVolume" type="range" min="0.08" max="0.6" value="0.28" step="0.02" />
-            <button id="newChallenge" class="primary-action">出題</button>
+            <div class="button-row">
+              <button id="newChallenge" class="primary-action">出題</button>
+              <button id="stopChallenge" disabled>停止</button>
+            </div>
+            <p id="challengeStatus" class="hint" role="status">每題播放 6 秒，可隨時停止。</p>
             <div class="choice-grid" id="frequencyChoices">
               <button data-choice="low">低頻 80-300 Hz</button>
               <button data-choice="mid">中頻 300-2000 Hz</button>

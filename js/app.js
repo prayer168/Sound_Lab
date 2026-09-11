@@ -33,6 +33,8 @@ let mediaMode = "idle";
 let capturedAudioStream;
 let loadedMediaUrl = "";
 let challengeAnswer = null;
+let challengePlayback = null;
+let challengePlaybackRequest = 0;
 let bioAnswer = null;
 let bioScore = 0;
 let bioRound = 0;
@@ -635,8 +637,29 @@ function drawIdle(canvas, ctx, label) {
   ctx.fillText(label, 28, 46);
 }
 
-function playChallengeTone(frequency) {
-  ensureAudio().then((context) => {
+function stopChallengeTone() {
+  // Also cancel a start that is still waiting for AudioContext.resume().
+  challengePlaybackRequest++;
+  if (challengePlayback) {
+    const { osc, gain, context } = challengePlayback;
+    const now = context.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(0, now, 0.005);
+    osc.stop(now + 0.03);
+    challengePlayback = null;
+  }
+  document.querySelector('#stopChallenge').disabled = true;
+  document.querySelector('#challengeStatus').textContent = '已停止播放，仍可選擇答案或重新出題。';
+}
+
+async function playChallengeTone(frequency) {
+  stopChallengeTone();
+  const request = challengePlaybackRequest;
+  document.querySelector('#stopChallenge').disabled = false;
+  document.querySelector('#challengeStatus').textContent = '正在準備聲音…';
+  try {
+    const context = await ensureAudio();
+    if (request !== challengePlaybackRequest) return;
     const osc = context.createOscillator();
     const gain = context.createGain();
     const compressor = context.createDynamicsCompressor();
@@ -652,12 +675,31 @@ function playChallengeTone(frequency) {
     compressor.release.value = 0.16;
     gain.gain.setValueAtTime(0.0001, context.currentTime);
     gain.gain.exponentialRampToValueAtTime(volume, context.currentTime + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 1.2);
+    gain.gain.setValueAtTime(volume, context.currentTime + 5.9);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 6);
     osc.connect(gain).connect(compressor).connect(context.destination);
+    const playback = { osc, gain, context };
+    challengePlayback = playback;
+    osc.onended = () => {
+      osc.disconnect();
+      gain.disconnect();
+      compressor.disconnect();
+      if (challengePlayback !== playback) return;
+      challengePlayback = null;
+      document.querySelector('#stopChallenge').disabled = true;
+      document.querySelector('#challengeStatus').textContent = '播放完畢，請選出你聽到的頻率範圍。';
+    };
     osc.start();
-    osc.stop(context.currentTime + 1.25);
-  });
+    osc.stop(context.currentTime + 6);
+    document.querySelector('#challengeStatus').textContent = '播放中・6 秒後自動停止，也可按「停止」。';
+  } catch (error) {
+    if (request !== challengePlaybackRequest) return;
+    stopChallengeTone();
+    document.querySelector('#challengeStatus').textContent = `無法播放聲音：${error.message}。請重新出題。`;
+  }
 }
+
+document.querySelector('#stopChallenge').addEventListener('click', stopChallengeTone);
 
 document.querySelector("#newChallenge").addEventListener("click", () => {
   const bank = [
