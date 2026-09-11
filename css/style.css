@@ -322,6 +322,29 @@ canvas {
   align-items: end;
 }
 
+.sound-description {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal, #18b6a2);
+  border-radius: 8px;
+  background: #0d1725;
+}
+
+.sound-description-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sound-description h3 { margin: 0; font-size: 1rem; }
+.sound-description-heading span { color: #75dfcd; font-size: 0.82rem; }
+#soundDescription { margin: 0.7rem 0; line-height: 1.8; min-height: 3.6em; }
+.sound-description .hint { margin: 0.4rem 0; line-height: 1.6; }
+.sound-description-note { color: var(--muted); font-size: 0.8rem; line-height: 1.6; margin: 0.7rem 0 0; }
+
 #dbFill {
   width: 100%;
   height: 0%;

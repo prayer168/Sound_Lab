@@ -1,5 +1,14 @@
 # 測試報告
 
+## 2026-09-11：聲音譜圖與音質、音色觀察
+
+- `node --test tests/sound-description.test.mjs`：7 項通過，涵蓋 44.1／48 kHz 的低高純音、多頻成分、寬頻雜訊、靜音、增益比例不變性、音量起伏與訊號超出範圍。
+- agent-browser／Chromium：以 Web Audio 合成的 MediaStream 代替實體麥克風，共 13 項檢查通過。涵蓋改名、等待、低音、高音、複合音、白噪音、凍結、靜音與恢復、停止清空、重新收音及模擬拒絕權限。已修正收音恢復時殘留的靜音提示。
+- `tests/sound-description.browser.js` 保留整合檢查腳本；在新的開發頁面透過 agent-browser `eval --stdin` 執行。測試瀏覽器以 `--args '--autoplay-policy=no-user-gesture-required'` 啟動，允許合成測試來源在無實際手勢時運作。
+- 桌面 1280×1000 與手機 390×844 截圖目視通過；390 px 與 320 px 的頁面寬度等於視窗寬度，無水平溢出。瀏覽器未回報頁面錯誤。
+- `GITHUB_PAGES=true npm run build` 與 `git diff --check` 通過。
+- 此次沒有使用實體麥克風，也沒有校正聽感分類；描述為教學用的頻譜推估。不同裝置與環境仍會影響結果。
+
 日期：2026-06-21
 
 ## 已檢查

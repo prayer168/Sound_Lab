@@ -23,7 +23,7 @@
     <nav class="tabs" aria-label="教材頁籤">
       <button class="tab active" data-tab="mission">學習任務</button>
       <button class="tab" data-tab="tone">頻率產生器</button>
-      <button class="tab" data-tab="mic">麥克風圖譜</button>
+      <button class="tab" data-tab="mic">聲音譜圖</button>
       <button class="tab" data-tab="media">媒體音頻圖</button>
       <button class="tab" data-tab="games">聲音遊戲</button>
       <button class="tab" data-tab="learn">原理與應用</button>
@@ -107,8 +107,8 @@
       <section id="mic" class="panel" tabindex="0">
         <div class="tool-layout">
           <article class="control-panel">
-            <h2>麥克風即時音頻圖</h2>
-            <p>允許瀏覽器使用麥克風後，可以看到環境聲的頻率分布與估計分貝。</p>
+            <h2>聲音譜圖</h2>
+            <p>允許瀏覽器使用麥克風後，可以看到環境聲的頻率分布、估計分貝，以及即時的音質與音色描述。</p>
             <label for="micDevice">輸入裝置</label>
             <div class="inline-control">
               <select id="micDevice" aria-label="選擇麥克風">
@@ -126,7 +126,7 @@
             <p id="micStatus" class="hint">尚未啟用麥克風。</p>
           </article>
           <article class="visual-panel">
-            <canvas id="micCanvas" width="900" height="420" aria-label="麥克風頻譜圖"></canvas>
+            <canvas id="micCanvas" width="900" height="420" aria-label="聲音頻譜與即時波形圖"></canvas>
             <div class="meter-row">
               <div class="db-meter"><div id="dbFill"></div></div>
               <div class="metric-grid">
@@ -135,6 +135,15 @@
                 <div><span>聲音狀態</span><strong id="soundState">等待中</strong></div>
               </div>
             </div>
+            <section class="sound-description" aria-labelledby="soundDescriptionHeading">
+              <div class="sound-description-heading">
+                <h3 id="soundDescriptionHeading">音質與音色觀察</h3>
+                <span id="soundDescriptionStatus">等待收音</span>
+              </div>
+              <p id="soundDescription">開啟麥克風後，這裡會隨著聲音變化，描述音色的低沉或明亮、頻譜的單純或豐富，以及音量的起伏。</p>
+              <p id="soundDescriptionEvidence" class="hint"></p>
+              <p class="sound-description-note">依頻譜推估聽感，不能單憑圖形辨認聲源或判定音質好壞；收音裝置、距離與靈敏度也會影響結果。</p>
+            </section>
           </article>
         </div>
       </section>

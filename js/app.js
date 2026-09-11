@@ -1,3 +1,5 @@
+import { spectrumFeatures, describeSound } from "./sound-description.mjs";
+
 const tabs = [...document.querySelectorAll(".tab")];
 const panels = [...document.querySelectorAll(".panel")];
 const progressText = document.querySelector("#progressText");
@@ -14,6 +16,15 @@ let micSource;
 let micGain;
 let micMonitorGain;
 let micAnalyser;
+let micWasSilent = false;
+let micDescriptionFrequency;
+let micDescriptionWave;
+let micDescriptionHistory = [];
+let micDescriptionSampleAt = 0;
+let micDescriptionRenderAt = 0;
+const soundDescription = document.querySelector("#soundDescription");
+const soundDescriptionEvidence = document.querySelector("#soundDescriptionEvidence");
+const soundDescriptionStatus = document.querySelector("#soundDescriptionStatus");
 let mediaElementSource;
 let mediaActiveSource;
 let mediaAnalyser;
@@ -300,10 +311,16 @@ async function startMic() {
   micAnalyser.minDecibels = -110;
   micAnalyser.maxDecibels = -10;
   micAnalyser.smoothingTimeConstant = 0.55;
+  micWasSilent = false;
+  micDescriptionFrequency = new Float32Array(micAnalyser.frequencyBinCount);
+  micDescriptionWave = new Float32Array(micAnalyser.fftSize);
+  resetSoundDescription('正在收音，請發出聲音，觀察音質與音色的變化。', '正在觀察');
+  document.querySelector("#freezeMic").checked = false;
   micSource.connect(micGain);
   micGain.connect(micAnalyser);
   micGain.connect(micMonitorGain).connect(context.destination);
   const track = micStream.getAudioTracks()[0];
+  track?.addEventListener('ended', stopMic, { once: true });
   const label = track?.label ? `裝置：${track.label}。` : "";
   await loadMicDevices();
   document.querySelector("#micStatus").textContent = `麥克風已啟用，AudioContext：${context.state}。${label}請調整靈敏度並說話或拍手。`;
@@ -313,11 +330,23 @@ function stopMic() {
   if (micStream) {
     micStream.getTracks().forEach((track) => track.stop());
   }
+  micSource?.disconnect();
+  micGain?.disconnect();
+  micMonitorGain?.disconnect();
+  micAnalyser?.disconnect();
   micStream = null;
   micSource = null;
   micGain = null;
   micMonitorGain = null;
   micAnalyser = null;
+  micDescriptionFrequency = null;
+  micDescriptionWave = null;
+  document.querySelector("#freezeMic").checked = false;
+  document.querySelector("#dbValue").textContent = '-- dB';
+  document.querySelector("#peakFrequency").textContent = '-- Hz';
+  document.querySelector("#soundState").textContent = '已停止';
+  document.querySelector("#dbFill").style.height = '0%';
+  resetSoundDescription('收音已停止。重新開啟麥克風後，會繼續描述目前聲音的音質與音色。', '已停止');
   document.querySelector("#micStatus").textContent = "麥克風已停止。";
 }
 
@@ -326,6 +355,7 @@ document.querySelector("#startMic").addEventListener("click", async () => {
     await startMic();
   } catch (error) {
     document.querySelector("#micStatus").textContent = `無法開啟麥克風：${error.message}`;
+    resetSoundDescription('目前無法收音。請確認麥克風權限與輸入裝置後，再開啟麥克風。', '無法收音');
   }
 });
 document.querySelector("#stopMic").addEventListener("click", stopMic);
@@ -350,16 +380,55 @@ document.querySelector("#micSensitivity").addEventListener("input", (event) => {
   }
 });
 
-function animateMic() {
+function resetSoundDescription(text, state) {
+  micDescriptionHistory = [];
+  micDescriptionSampleAt = 0;
+  micDescriptionRenderAt = 0;
+  soundDescription.textContent = text;
+  soundDescriptionEvidence.textContent = '';
+  soundDescriptionStatus.textContent = state;
+}
+
+document.querySelector('#freezeMic').addEventListener('change', event => {
+  if (!micAnalyser) return;
+  soundDescriptionStatus.textContent = event.target.checked ? '已凍結・保留當下描述' : '正在觀察';
+  if (!event.target.checked) {
+    micDescriptionHistory = [];
+    micDescriptionSampleAt = 0;
+    micDescriptionRenderAt = 0;
+  }
+});
+
+function updateSoundDescription(now) {
+  if (now - micDescriptionSampleAt < 250) return;
+  micDescriptionSampleAt = now;
+  micAnalyser.getFloatFrequencyData(micDescriptionFrequency);
+  micAnalyser.getFloatTimeDomainData(micDescriptionWave);
+  micDescriptionHistory.push(spectrumFeatures(micDescriptionFrequency, micDescriptionWave, audioContext.sampleRate, micAnalyser.fftSize));
+  if (micDescriptionHistory.length > 6) micDescriptionHistory.shift();
+  if (now - micDescriptionRenderAt < 750) return;
+  micDescriptionRenderAt = now;
+  const description = describeSound(micDescriptionHistory);
+  if (soundDescription.textContent !== description.text) soundDescription.textContent = description.text;
+  soundDescriptionEvidence.textContent = description.evidence;
+  soundDescriptionStatus.textContent = description.state;
+}
+
+function animateMic(now = performance.now()) {
   if (micAnalyser && !document.querySelector("#freezeMic").checked) {
     const result = drawSpectrum(canvases.mic, ctxs.mic, micAnalyser, "mic");
+    updateSoundDescription(now);
     document.querySelector("#dbValue").textContent = `${result.db.toFixed(1)} dB`;
     document.querySelector("#peakFrequency").textContent = result.max > 2 && result.waveStats.peakToPeak > 2 ? `${result.peakFrequency} Hz` : "-- Hz";
     document.querySelector("#dbFill").style.height = `${result.db}%`;
     document.querySelector("#soundState").textContent = result.waveStats.peakToPeak <= 2 ? "未收到訊號" : result.db < 35 ? "安靜" : result.db < 68 ? "一般聲音" : "偏大聲";
     if (result.waveStats.peakToPeak <= 2) {
+      micWasSilent = true;
       const selectedLabel = micDeviceSelect.selectedOptions[0]?.textContent || "目前裝置";
       document.querySelector("#micStatus").textContent = `${selectedLabel} 已開啟，但目前收到靜音。請從「輸入裝置」改選其他麥克風，或檢查 Windows 輸入音量是否有跳動。`;
+    } else if (micWasSilent) {
+      micWasSilent = false;
+      document.querySelector("#micStatus").textContent = '已收到聲音，譜圖與音質、音色描述會隨收音更新。';
     }
   } else if (!micAnalyser) {
     drawIdle(canvases.mic, ctxs.mic, "等待麥克風");
