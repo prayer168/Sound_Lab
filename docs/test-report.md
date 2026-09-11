@@ -1,5 +1,11 @@
 # 測試報告
 
+## 2026-09-11：社群連結縮圖
+
+- 首頁 head 加入 Open Graph 標題、說明、網址與公開 PNG 縮圖，並提供實際尺寸 1734×907 與替代文字；不依賴 JavaScript 才能取得分享資訊。
+- 圖片位於 `public/img/social/sound-lab-62-animals.png`，建置後隨網站發布；首頁 canonical 與 og:url 一致。
+- 設定依據：[Open Graph protocol](https://ogp.me/)。Facebook 的預覽與快取仍由平台處理，本地 metadata 驗證不能代表已更新 Facebook 快取。
+
 ## 2026-09-11：猜猜我是誰擴充至 62 種
 
 - `python scripts/verify-bio-audio.py` 通過：62 個名稱、檔名、來源 URL 均無重複，檔案大小吻合，62 段均能由 FFmpeg 解碼且有非靜音訊號；檔案雜湊與解碼後前 5 秒的雜湊均無重複。40 段新增錄音有作者、授權連結、來源頁、裁切紀錄及 SHA-256。
