@@ -10,6 +10,7 @@
 - 全螢幕按鈕已以實際點擊進入與離開 Fullscreen API，文字、四選項、回饋與導覽均可見。
 - 1440×1000、768×1024、390×844 三種 viewport 實際操作與目視通過；頁面寬度均等於 viewport，無水平溢出、裁切或重疊。證據為 `quiz-desktop-1440x1000.png`、`quiz-wrong-answer-1440x1000.png`、`quiz-fullscreen-1440x1000.png`、`quiz-tablet-768x1024.png`、`quiz-mobile-390x844.png` 與 `quiz-mobile-wrong-390x844.png`。
 - axe-core 對 `#quiz` 區域檢查為 0 項無障礙違規；漸層背景使自動工具有 1 類色彩對比待人工確認，目視的明暗對比清楚。瀏覽器無錯誤頁、無 Vite 錯誤覆蓋層。
+- GitHub Pages 部署後再開啟 `https://prayer168.github.io/Sound_Lab/`：首頁、JavaScript、CSS、三份內容 JSON 及生物音訊／資源 manifest 均回應 200；線上闖關只顯示一題四選項，答錯後即時回饋並同時標示錯選項與正確答案，無瀏覽器錯誤。
 - 限制：實際語音音色由使用者裝置的 `zh-TW` 或其他中文 Speech Synthesis 聲音決定；若裝置不支援語音合成，畫面仍會保留完整的文字回饋。
 
 ## 2026-09-11：社群連結縮圖
