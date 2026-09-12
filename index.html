@@ -285,6 +285,25 @@
       </details>
     </section>
 
-    <script src="./js/app.js" type="module"></script>
+    <script>
+      if (window.location.protocol === "file:") {
+        const loadLocalBundle = () => {
+          const script = document.createElement("script");
+          script.src = "./js/app.local.js";
+          script.async = false;
+          document.body.appendChild(script);
+        };
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", loadLocalBundle, { once: true });
+        } else {
+          loadLocalBundle();
+        }
+      }
+    </script>
+    <script type="module">
+      if (window.location.protocol !== "file:") {
+        import("./js/app.js");
+      }
+    </script>
   </body>
 </html>

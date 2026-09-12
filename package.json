@@ -4,7 +4,8 @@
   "description": "互動式音頻圖與聲音實驗網站",
   "scripts": {
     "start": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build:local": "esbuild js/app.js --bundle --format=iife --platform=browser --outfile=js/app.local.js",
+    "build": "npm run build:local && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "devDependencies": {

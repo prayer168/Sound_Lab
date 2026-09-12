@@ -34,6 +34,8 @@ npm run start
 
 啟動後開啟 Vite 顯示的本機網址。
 
+如果只想直接點開 `index.html`，頁面會自動載入建置後的 `js/app.local.js`，八個頁籤仍可操作。
+
 ## GitHub Pages
 
 部署網址：

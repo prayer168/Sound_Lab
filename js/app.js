@@ -1,4 +1,11 @@
 import { spectrumFeatures, describeSound } from "./sound-description.mjs";
+import localContent from "../data/content.json";
+import localQuiz from "../data/quiz.json";
+import localResources from "../data/resources.json";
+import localBioManifest from "../data/bio-manifest.json";
+import localResourceLogos from "../data/resource-logos.json";
+
+const isLocalFile = window.location.protocol === "file:";
 
 const tabs = [...document.querySelectorAll(".tab")];
 const panels = [...document.querySelectorAll(".panel")];
@@ -805,9 +812,13 @@ async function loadBioManifest() {
   const button = document.querySelector('#newBioChallenge');
   button.disabled = true;
   try {
-    const response = await fetch("./audio/bio/manifest.json");
-    if (!response.ok) throw new Error(String(response.status));
-    bioManifest = await response.json();
+    if (isLocalFile) {
+      bioManifest = localBioManifest;
+    } else {
+      const response = await fetch("./audio/bio/manifest.json");
+      if (!response.ok) throw new Error(String(response.status));
+      bioManifest = await response.json();
+    }
     const known = new Set(biologicalSounds.map(item => item.id));
     for (const [id, entry] of Object.entries(bioManifest)) {
       if (!known.has(id) && entry.name && entry.group && entry.file) {
@@ -1200,6 +1211,7 @@ function resourceSlug(url) {
 }
 
 async function loadResourceLogos() {
+  if (isLocalFile) return localResourceLogos;
   try {
     const response = await fetch("./img/resources/manifest.json");
     if (!response.ok) throw new Error(String(response.status));
@@ -1220,15 +1232,16 @@ function resourceVisual(item, logos) {
 
 async function loadContent() {
   try {
-    const loadJson = async (path) => {
+    const loadJson = async (path, localFallback) => {
+      if (isLocalFile) return localFallback;
       const response = await fetch(path);
       if (!response.ok) throw new Error(`${path} ${response.status}`);
       return response.json();
     };
     const [content, quiz, resources] = await Promise.all([
-      loadJson("./data/content.json"),
-      loadJson("./data/quiz.json"),
-      loadJson("./data/resources.json")
+      loadJson("./data/content.json", localContent),
+      loadJson("./data/quiz.json", localQuiz),
+      loadJson("./data/resources.json", localResources)
     ]);
     document.querySelector("#conceptGrid").innerHTML = content.concepts.map((item) =>
       conceptDemoMarkup(item)

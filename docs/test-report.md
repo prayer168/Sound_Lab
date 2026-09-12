@@ -1,5 +1,11 @@
 # 測試報告
 
+## 2026-09-12：file:// 直接開啟修正
+
+- 問題重現：原本直接雙擊 `index.html` 時，Chrome 只載入 HTML，因 `file://` 限制阻擋 `type="module"` 與 JSON `fetch()`，頁籤點擊無作用。
+- 修正：由 `index.html` 內建啟動器載入 esbuild 生成的 `js/app.local.js`；本地模式使用單檔 IIFE bundle，並由 JSON import 內建內容、題庫、生物音訊 manifest 與資源圖標資料，不需要 `fetch()`。
+- Chromium 直接開啟 `file:///D:/.../Sound_Lab-codex/index.html`（無特殊 `--allow-file-access`）：八個頁籤依序切換都成功，闖關顯示一題四選項；點選錯答後會出現「你答錯了」、標示正解，無頁面錯誤。
+
 ## 2026-09-12：逐題闖關、語音音效與全螢幕
 
 - `GITHUB_PAGES=true npm run build` 通過；Vite 7.3.6 完成正式建置，題庫與社群圖片均進入 `dist`。
