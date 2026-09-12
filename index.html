@@ -245,14 +245,22 @@
       </section>
 
       <section id="quiz" class="panel" tabindex="0">
-        <article class="quiz-shell">
+        <article class="quiz-shell" aria-labelledby="quizTitle">
           <div class="quiz-head">
-            <h2>闖關大挑戰</h2>
-            <strong id="quizScore">0 / 0</strong>
+            <div>
+              <p id="quizProgress" class="quiz-kicker">準備中…</p>
+              <h2 id="quizTitle">闖關大挑戰</h2>
+            </div>
+            <div class="quiz-head-actions">
+              <strong id="quizScore">答對 0 / 0</strong>
+              <button id="quizFullscreen" class="quiz-fullscreen" type="button" aria-pressed="false">⛶ 全螢幕作答</button>
+            </div>
           </div>
-          <div id="quizBox"></div>
-          <div class="button-row">
-            <button id="checkQuiz" class="primary-action">檢查答案</button>
+          <div class="quiz-progress-track" aria-hidden="true"><div id="quizQuestionProgress"></div></div>
+          <div id="quizBox" class="quiz-box"></div>
+          <p id="quizFeedback" class="quiz-feedback" role="status" aria-live="polite">請選擇一個答案。</p>
+          <div class="quiz-controls">
+            <button id="nextQuiz" class="primary-action" disabled>下一題</button>
             <button id="resetQuiz">重新挑戰</button>
           </div>
         </article>

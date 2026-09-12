@@ -1,5 +1,17 @@
 # 測試報告
 
+## 2026-09-12：逐題闖關、語音音效與全螢幕
+
+- `GITHUB_PAGES=true npm run build` 通過；Vite 7.3.6 完成正式建置，題庫與社群圖片均進入 `dist`。
+- `npm audit` 通過：0 個已知漏洞。`node --test tests/sound-description.test.mjs` 維持 7 項通過。
+- Chromium／agent-browser 執行 `tests/quiz-sequential.browser.js`，15 項通過：一次只顯示一題、每題四個選項、作答後鎖定、即時回饋、正解標示、分數、下一題與重設。
+- 完整連續答完 10 題，成績頁顯示 `答對 10 / 10`；第一題也以鍵盤 Enter 作答，選項會鎖定且「下一題」正常啟用。
+- 以瀏覽器支援合成架接監測聲音回饋：答對建立 7 個鼓掌音粒並將「你答對了」送入語音引擎；答錯建立 2 個下降提示音並將「你答錯了」送入語音引擎，同時顯示一個正確答案標記。
+- 全螢幕按鈕已以實際點擊進入與離開 Fullscreen API，文字、四選項、回饋與導覽均可見。
+- 1440×1000、768×1024、390×844 三種 viewport 實際操作與目視通過；頁面寬度均等於 viewport，無水平溢出、裁切或重疊。證據為 `quiz-desktop-1440x1000.png`、`quiz-wrong-answer-1440x1000.png`、`quiz-fullscreen-1440x1000.png`、`quiz-tablet-768x1024.png`、`quiz-mobile-390x844.png` 與 `quiz-mobile-wrong-390x844.png`。
+- axe-core 對 `#quiz` 區域檢查為 0 項無障礙違規；漸層背景使自動工具有 1 類色彩對比待人工確認，目視的明暗對比清楚。瀏覽器無錯誤頁、無 Vite 錯誤覆蓋層。
+- 限制：實際語音音色由使用者裝置的 `zh-TW` 或其他中文 Speech Synthesis 聲音決定；若裝置不支援語音合成，畫面仍會保留完整的文字回饋。
+
 ## 2026-09-11：社群連結縮圖
 
 - 首頁 head 加入 Open Graph 標題、說明、網址與公開 PNG 縮圖，並提供實際尺寸 1734×907 與替代文字；不依賴 JavaScript 才能取得分享資訊。

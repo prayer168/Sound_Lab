@@ -38,6 +38,11 @@ let challengePlaybackRequest = 0;
 let bioAnswer = null;
 let bioScore = 0;
 let bioRound = 0;
+let quizQuestions = [];
+let quizIndex = 0;
+let quizCorrect = 0;
+let quizAnswered = false;
+let quizSpeechTimer;
 
 const canvases = {
   tone: document.querySelector("#toneCanvas"),
@@ -61,6 +66,7 @@ async function ensureAudio() {
 function switchTab(id) {
   tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === id));
   panels.forEach((panel) => panel.classList.toggle("active", panel.id === id));
+  document.body.classList.toggle("quiz-mode", id === "quiz");
   visited.add(id);
   localStorage.setItem("audioLabVisited", JSON.stringify([...visited]));
   updateProgress();
@@ -1251,38 +1257,196 @@ async function loadContent() {
 }
 
 function renderQuiz(quiz) {
-  const box = document.querySelector("#quizBox");
-  box.innerHTML = quiz.map((item, index) => `
-    <div class="quiz-item" data-answer="${item.answer}">
-      <p><strong>${index + 1}. ${item.question}</strong></p>
-      <div class="quiz-options">
-        ${item.options.map((option, optionIndex) => `
-          <label><input type="radio" name="q${index}" value="${optionIndex}" /> ${option}</label>
-        `).join("")}
-      </div>
-      <p class="answer-note" hidden>${item.explanation}</p>
-    </div>
-  `).join("");
-  document.querySelector("#quizScore").textContent = `0 / ${quiz.length}`;
+  quizQuestions = quiz;
+  resetQuiz();
 }
 
-document.querySelector("#checkQuiz").addEventListener("click", () => {
-  const items = [...document.querySelectorAll(".quiz-item")];
-  let score = 0;
-  items.forEach((item, index) => {
-    const checked = item.querySelector(`input[name="q${index}"]:checked`);
-    const note = item.querySelector(".answer-note");
-    const correct = checked && Number(checked.value) === Number(item.dataset.answer);
-    if (correct) score += 1;
-    note.hidden = false;
-    note.style.color = correct ? "var(--green)" : "var(--amber)";
+function quizOptionLabel(index) {
+  return String.fromCharCode(65 + index);
+}
+
+function updateQuizHeader() {
+  const total = quizQuestions.length;
+  document.querySelector("#quizScore").textContent = `答對 ${quizCorrect} / ${total}`;
+  document.querySelector("#quizProgress").textContent = total ? `第 ${quizIndex + 1} / ${total} 題` : "準備中…";
+  document.querySelector("#quizQuestionProgress").style.width = total ? `${((quizIndex + 1) / total) * 100}%` : "0%";
+}
+
+function renderQuizQuestion({ focus = false } = {}) {
+  const box = document.querySelector("#quizBox");
+  const feedback = document.querySelector("#quizFeedback");
+  const nextButton = document.querySelector("#nextQuiz");
+  const item = quizQuestions[quizIndex];
+
+  if (!item) {
+    box.innerHTML = `<div class="quiz-result" tabindex="-1">
+      <p class="quiz-result-icon" aria-hidden="true">🏁</p>
+      <h3>挑戰完成！</h3>
+      <p>你答對了 <strong>${quizCorrect}</strong> 題，共 ${quizQuestions.length} 題。</p>
+      <p>${quizCorrect === quizQuestions.length ? "太棒了，每題都答對！" : "可以按「重新挑戰」再複習一次。"}</p>
+    </div>`;
+    document.querySelector("#quizProgress").textContent = `已完成 ${quizQuestions.length} / ${quizQuestions.length} 題`;
+    document.querySelector("#quizQuestionProgress").style.width = "100%";
+    feedback.textContent = `挑戰完成，共答對 ${quizCorrect} 題。`;
+    feedback.dataset.state = "complete";
+    nextButton.hidden = true;
+    if (focus) box.querySelector(".quiz-result")?.focus();
+    return;
+  }
+
+  quizAnswered = false;
+  updateQuizHeader();
+  box.innerHTML = `
+    <div class="quiz-item" data-answer="${item.answer}">
+      <h3 id="currentQuizQuestion" class="quiz-question" tabindex="-1">${quizIndex + 1}. ${item.question}</h3>
+      <div class="quiz-options" role="group" aria-labelledby="currentQuizQuestion">
+        ${item.options.map((option, optionIndex) => `
+          <button class="quiz-option" type="button" data-option="${optionIndex}">
+            <span class="quiz-option-letter" aria-hidden="true">${quizOptionLabel(optionIndex)}</span>
+            <span class="quiz-option-text">${option}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>`;
+  box.querySelectorAll(".quiz-option").forEach((button) => {
+    button.addEventListener("click", () => answerQuizQuestion(Number(button.dataset.option)));
   });
-  document.querySelector("#quizScore").textContent = `${score} / ${items.length}`;
+  feedback.textContent = "請選擇一個答案。";
+  feedback.dataset.state = "waiting";
+  nextButton.hidden = false;
+  nextButton.disabled = true;
+  nextButton.textContent = quizIndex === quizQuestions.length - 1 ? "查看成績" : "下一題";
+  if (focus) document.querySelector("#currentQuizQuestion")?.focus({ preventScroll: true });
+}
+
+function playApplause(context) {
+  const duration = 1.35;
+  const frameCount = Math.floor(context.sampleRate * duration);
+  const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < frameCount; i += 1) data[i] = Math.random() * 2 - 1;
+
+  const now = context.currentTime;
+  [0, 0.11, 0.23, 0.36, 0.51, 0.68, 0.87].forEach((offset, index) => {
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    filter.type = "bandpass";
+    filter.frequency.value = 1050 + (index % 3) * 420;
+    filter.Q.value = 0.65;
+    gain.gain.setValueAtTime(0.0001, now + offset);
+    gain.gain.exponentialRampToValueAtTime(0.18 + (index % 2) * 0.04, now + offset + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start(now + offset, Math.min(offset, 0.6), 0.2);
+  });
+}
+
+function playIncorrectSound(context) {
+  const now = context.currentTime;
+  [0, 0.24].forEach((offset, index) => {
+    const oscillatorNode = context.createOscillator();
+    const gain = context.createGain();
+    oscillatorNode.type = "triangle";
+    oscillatorNode.frequency.setValueAtTime(index === 0 ? 260 : 175, now + offset);
+    gain.gain.setValueAtTime(0.0001, now + offset);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + offset + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+    oscillatorNode.connect(gain).connect(context.destination);
+    oscillatorNode.start(now + offset);
+    oscillatorNode.stop(now + offset + 0.24);
+  });
+}
+
+function speakQuizResult(message, delay) {
+  if (!("speechSynthesis" in window)) return;
+  clearTimeout(quizSpeechTimer);
+  window.speechSynthesis.cancel();
+  quizSpeechTimer = setTimeout(() => {
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = "zh-TW";
+    utterance.rate = 0.92;
+    utterance.pitch = 1.05;
+    const voices = window.speechSynthesis.getVoices();
+    utterance.voice = voices.find((voice) => voice.lang.toLowerCase() === "zh-tw")
+      || voices.find((voice) => voice.lang.toLowerCase().startsWith("zh"))
+      || null;
+    window.speechSynthesis.speak(utterance);
+  }, delay);
+}
+
+async function playQuizFeedback(correct) {
+  try {
+    const context = await ensureAudio();
+    if (correct) playApplause(context);
+    else playIncorrectSound(context);
+  } catch (error) {
+    console.warn("無法播放闖關音效：", error);
+  }
+  speakQuizResult(correct ? "你答對了" : "你答錯了", correct ? 480 : 360);
+}
+
+function answerQuizQuestion(selectedIndex) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  const item = quizQuestions[quizIndex];
+  const correct = selectedIndex === Number(item.answer);
+  const options = [...document.querySelectorAll(".quiz-option")];
+  const feedback = document.querySelector("#quizFeedback");
+
+  if (correct) quizCorrect += 1;
+  options.forEach((button, index) => {
+    button.disabled = true;
+    if (index === Number(item.answer)) {
+      button.classList.add("correct-answer");
+      button.setAttribute("aria-label", `${button.querySelector(".quiz-option-text").textContent}，正確答案`);
+      button.insertAdjacentHTML("beforeend", '<span class="answer-badge">正確答案</span>');
+    }
+    if (index === selectedIndex && !correct) button.classList.add("wrong-answer");
+  });
+
+  feedback.textContent = correct
+    ? `你答對了！${item.explanation}`
+    : `你答錯了。正確答案是「${item.options[item.answer]}」。${item.explanation}`;
+  feedback.dataset.state = correct ? "correct" : "wrong";
+  document.querySelector("#nextQuiz").disabled = false;
+  updateQuizHeader();
+  playQuizFeedback(correct);
+}
+
+function resetQuiz() {
+  quizIndex = 0;
+  quizCorrect = 0;
+  quizAnswered = false;
+  clearTimeout(quizSpeechTimer);
+  window.speechSynthesis?.cancel();
+  renderQuizQuestion();
+}
+
+document.querySelector("#nextQuiz").addEventListener("click", () => {
+  if (!quizAnswered) return;
+  quizIndex += 1;
+  renderQuizQuestion({ focus: true });
 });
-document.querySelector("#resetQuiz").addEventListener("click", () => {
-  document.querySelectorAll(".quiz-item input").forEach((input) => { input.checked = false; });
-  document.querySelectorAll(".answer-note").forEach((note) => { note.hidden = true; });
-  document.querySelector("#quizScore").textContent = `0 / ${document.querySelectorAll(".quiz-item").length}`;
+
+document.querySelector("#resetQuiz").addEventListener("click", resetQuiz);
+
+const quizFullscreenButton = document.querySelector("#quizFullscreen");
+const quizShell = document.querySelector(".quiz-shell");
+if (!document.fullscreenEnabled) quizFullscreenButton.hidden = true;
+quizFullscreenButton.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement === quizShell) await document.exitFullscreen();
+    else await quizShell.requestFullscreen();
+  } catch (error) {
+    console.warn("無法切換全螢幕：", error);
+  }
+});
+document.addEventListener("fullscreenchange", () => {
+  const active = document.fullscreenElement === quizShell;
+  quizFullscreenButton.setAttribute("aria-pressed", String(active));
+  quizFullscreenButton.textContent = active ? "⛶ 離開全螢幕" : "⛶ 全螢幕作答";
 });
 
 loadContent();
